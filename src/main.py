@@ -1,6 +1,7 @@
 from utilities.script import Script
 from utilities.network import ClientConnectionManager, ServerConnectionManager
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
+from multiprocessing import Pool
 from time import sleep
 
 def test_scripting():
@@ -10,6 +11,13 @@ def test_scripting():
 
     script.get("map")()
     script.get("reduce")()
+
+
+def f(x):
+    return x**x
+def multi_threading_speedup():
+    pool = Pool(4)
+    print(pool.map(f, [1, 2, 3]))
 
 
 def server(args):
@@ -42,7 +50,8 @@ def main():
         server(args)
     else:
         client(args)
-        test_scripting()
 
 if __name__ == "__main__":
+    multi_threading_speedup()
+    test_scripting()
     main()
