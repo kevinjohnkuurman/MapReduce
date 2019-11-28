@@ -20,11 +20,10 @@ def server(args):
 
     # get the clients and start distributing the work
     clients = connection_manager.get_clients()
-    while True:
+    for x in range(10):
         message = connection_manager.get_next_message(clients)
         if message is not None:
             print(message)
-            break
         sleep(1)
     connection_manager.close()
 
