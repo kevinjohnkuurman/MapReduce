@@ -6,6 +6,7 @@ from threading import Thread
 from queue import Queue
 from time import sleep
 from utilities.atomic_int import AtomicInteger
+from datetime import datetime
 
 class ServerClientConnection:
     def __init__(self, cid, sock, address):
@@ -78,7 +79,7 @@ class ClientConnectionManager(ConnectionManager):
         while self.running:
             try:
                 meta, data = self._recv(self.socket)
-                self.messages.put((meta, data))
+                self.messages.put(data)
             except OSError:
                 pass
 
@@ -133,7 +134,10 @@ class ServerConnectionManager(ConnectionManager):
         while self.running:
             try:
                 meta, data = self._recv(client.socket)
-                client.messages.put(data)
+                if meta.get('type') == ConnectionManager.HEARTBEAT:
+                    client.last_heartbeat = datetime.now()
+                else:
+                    client.messages.put(data)
             except struct.error:
                 pass
         client.socket.close()
