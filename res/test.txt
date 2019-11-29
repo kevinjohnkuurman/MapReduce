@@ -1,0 +1,5 @@
+def map():
+  print("mapping the data ...")
+
+def reduce():
+  print("reducing the data ...")
