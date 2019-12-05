@@ -21,7 +21,7 @@ def multi_threading_speedup():
 
 
 def server(args):
-    connection_manager = ServerConnectionManager()
+    connection_manager = ServerConnectionManager(heartbeat_max_interval=2)
 
     # first we wait until we have a satisfactory amount of workers
     while len(connection_manager.get_clients()) < args.workers: pass
