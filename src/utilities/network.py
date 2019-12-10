@@ -2,7 +2,7 @@ import socket
 import struct
 import pickle
 from typing import List
-from threading import Thread
+from threading import Thread, Condition
 from queue import Queue
 from time import sleep
 from utilities.atomic_int import AtomicInteger
@@ -15,12 +15,23 @@ class ServerClientConnection:
         self.address = address
         self.listen_thread = None
         self.messages = Queue()
-        self.last_heartbeat = None
+        self.last_heartbeat = datetime.now()
+        self.user_data = None
+
+    def get_user_data(self):
+        return self.user_data
+
+    def set_user_data(self, data):
+        self.user_data = data
+
+    def seconds_since_last_heartbeat(self):
+        return (datetime.now() - self.last_heartbeat).total_seconds()
 
 class ConnectionManager:
     NONE = 0
     MESSAGE = 1
     HEARTBEAT = 2
+    CONFIG = 3
 
     def __init__(self):
         pass
@@ -39,9 +50,8 @@ class ConnectionManager:
         }, data)
 
 class ClientConnectionManager(ConnectionManager):
-    def __init__(self, host='127.0.0.1', port=1234, heartbeat_rate=5):
+    def __init__(self, host='127.0.0.1', port=1234):
         super().__init__()
-        self.heartbeat_rate = heartbeat_rate
         self.messages = Queue()
         self.running = True
 
@@ -56,6 +66,15 @@ class ClientConnectionManager(ConnectionManager):
                 self.socket.close()
                 sleep(1)
 
+        # gather the configurations and other items
+        meta, configuration = self._recv(self.socket)
+        assert meta['type'] == ConnectionManager.CONFIG
+        self.heartbeat_rate = configuration['heartbeat']
+        self.client_id = configuration['client_id']
+        print(f"Client {self.client_id} configuration\n"
+              f"- heartbeat rate: {self.heartbeat_rate}")
+
+        # start the workers
         self.heartbeat_thread = Thread(target=self._send_heartbeat)
         self.manage_incoming = Thread(target=self._manage_incoming_messages)
         self.heartbeat_thread.start()
@@ -86,18 +105,29 @@ class ClientConnectionManager(ConnectionManager):
     def send_message(self, data):
         self._send(self.socket, data)
 
+    def has_message(self):
+        return not self.messages.empty()
+
     def get_next_message(self):
-        if self.messages.empty():
-            return None
+        if self.has_message():
+            return self.messages.get()
+        return None
+
+    def get_next_message_blocking(self):
         return self.messages.get()
 
 
 class ServerConnectionManager(ConnectionManager):
-    def __init__(self, host='127.0.0.1', port=1234, heartbeat_max_interval=5):
+    def __init__(self,
+                 host='127.0.0.1',
+                 port=1234,
+                 heartbeat_max_interval=5,
+                 max_connections=None):
         super().__init__()
 
         # how many seconds should there at most be between heartbeats
         self.heartbeat_max_interval = heartbeat_max_interval
+        self.max_connections = max_connections
         self.next_id = AtomicInteger(0)
 
         # initialize a socket for incoming connections
@@ -111,22 +141,39 @@ class ServerConnectionManager(ConnectionManager):
         self.accept_thread = Thread(target=self._accept_new_clients)
         self.accept_thread.start()
 
+        # wait for all connections if necessary
+        if self.max_connections is not None:
+            self.accept_thread.join()
+            self.accept_thread = None
+
     def close(self):
         self.running = False
         self.socket.close()
-        self.accept_thread.join()
+        if self.accept_thread is not None:
+            self.accept_thread.join()
         for client in self.get_clients():
             client.listen_thread.join()
 
     def _accept_new_clients(self):
-        self.socket.listen(5)
-        while self.running:
+        connection_counter = 0
+        self.socket.listen(5 if self.max_connections is None else self.max_connections)
+        while self.running and (self.max_connections is None or connection_counter < self.max_connections):
             try:
                 client, address = self.socket.accept()
-                new_client = ServerClientConnection(self.next_id.get_inc(), client, address)
+                next_client_id = self.next_id.get_inc()
+
+                # first we send the client configuration
+                self._send(client, {
+                    'client_id': next_client_id,
+                    'heartbeat': self.heartbeat_max_interval
+                }, ConnectionManager.CONFIG)
+
+                # construct a client management object
+                new_client = ServerClientConnection(next_client_id, client, address)
                 new_client.listen_thread = Thread(target=self._manage_client, args=(new_client, ))
                 new_client.listen_thread.start()
                 self.clients.append(new_client)
+                connection_counter += 1
             except ConnectionAbortedError:
                 break
 
