@@ -1,5 +1,37 @@
-def map():
-  print("mapping the data ...")
+import os
+import string
+from collections import Counter
 
-def reduce():
-  print("reducing the data ...")
+# generator for the datasets
+res_path = '../res/sci.electronics'
+def get_dataset():
+  files = os.listdir(res_path)
+  files = list(os.path.join(res_path, f) for f in files)
+  return files[0:30]
+
+
+# what to do with the final result
+def process_result(result):
+  print(result.most_common(10))
+
+
+# the mapping methods
+def map(input):
+  # clean the file
+  file_contents = read_file(input)
+  for char in string.punctuation:
+    file_contents = file_contents.replace(char, ' ')
+  file_contents = file_contents.lower()
+
+  # get the word counts
+  return Counter(file_contents.split())
+
+
+# The reduce methods
+def reduce_start_value():
+  return Counter()
+
+def reduce(input, total):
+  return input + total
+
+

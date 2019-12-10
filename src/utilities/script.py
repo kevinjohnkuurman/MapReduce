@@ -1,5 +1,5 @@
-from types import ModuleType, FunctionType
-
+from types import FunctionType
+from utilities.file_utils import read_file_contents
 
 class Script:
     """
@@ -8,8 +8,10 @@ class Script:
     """
     def __init__(self, code: str):
         try:
-            self.module = ModuleType("customModule")
-            exec(code, self.module.__dict__)
+            self.module = {
+                'read_file': read_file_contents,
+            }
+            exec(compile(code, '<MapReduce>', 'exec'), self.module)
         except SyntaxError:
             print("Could not compile script")
             raise RuntimeError("invalid script")
@@ -26,4 +28,4 @@ class Script:
         :param name: the function name to query
         :return: a function if available, None otherwise
         """
-        return self.module.__dict__.get(name, None)
+        return self.module.get(name, None)
