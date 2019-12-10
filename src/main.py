@@ -1,6 +1,6 @@
 from utilities.script import Script
 from utilities.network import ClientConnectionManager, ServerConnectionManager
-from utilities.distribution import block_distribution
+from utilities.distribution import block_distribution, chunking
 from utilities.file_utils import read_file_contents
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from multiprocessing import Pool, cpu_count
@@ -47,15 +47,8 @@ def reduce_helper(data, script=None):
 
 # this executes a distinct phase of the map reduce system
 def server_do_phase(connection_manager, clients, heartbeat, phase, work_list):
-    # distribute the list of items
-    for client, work in zip(clients, work_list):
-        connection_manager.send_message(client, {
-            'type': phase,
-            'work': work
-        })
-
     # next we execute the map method on the data set
-    finished = { c.cid: False for c in clients}
+    finished = { c.cid: True for c in clients}
     results = []
     while True:
         # first we make sure that every client is still alive
@@ -71,9 +64,17 @@ def server_do_phase(connection_manager, clients, heartbeat, phase, work_list):
             results.append(message['result'])
             finished[client.cid] = True
 
+        # check whether we can send new work to any client
+        for client in clients:
+            if finished[client.cid] and len(work_list) > 0:
+                finished[client.cid] = False
+                connection_manager.send_message(client, {
+                    'type': phase,
+                    'work': work_list.pop()
+                })
+
         # if all clients have responded then we're done
-        done = all(finished.values())
-        if done:
+        if all(finished.values()) and len(work_list) == 0:
             break
 
     return results
@@ -105,10 +106,12 @@ def server(args):
     data = script.get("get_dataset")()
     work = block_distribution(data, workers)
     map_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP, work)
+    print("Finished map phase")
 
     # Perform the reduce phase
     reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
     final_result = reduce_helper(reduce_results, script)
+    print("Finished the reduce phase")
 
     # process the final result
     script.get("process_result")(final_result)
@@ -157,6 +160,8 @@ def client(args):
         traceback.print_exc()
         print("Client halted")
 
+    executor_pool.close()
+    executor_pool.join()
     connection_manager.close()
 
 

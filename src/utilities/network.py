@@ -43,9 +43,18 @@ class ConnectionManager:
 
     def _recv(self, sock):
         meta_data = struct.unpack("ii", sock.recv(8))
-        data = pickle.loads(sock.recv(meta_data[0]))
+        size = meta_data[0]
+
+        # make sure that we receive all of the requested data
+        received = sock.recv(size)
+        while len(received) != size:
+            received += sock.recv(size - len(received))
+        assert len(received) == size, "Not enough data received"
+
+        # convert the data back to an usable object
+        data = pickle.loads(received)
         return ({
-            'size': meta_data[0],
+            'size': size,
             'type': meta_data[1]
         }, data)
 
