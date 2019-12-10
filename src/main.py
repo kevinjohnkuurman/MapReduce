@@ -12,6 +12,7 @@ SCRIPTS = 1
 MAP = 2
 REDUCE = 3
 FINISHED = 4
+MAP_REDUCE_SINGLE_PHASE = 5
 
 # these methods are utilities for the multiprocessing module
 def mp_init_worker(script_source):
@@ -105,15 +106,20 @@ def server(args):
     # Perform the map phase
     data = script.get("get_dataset")()
     work = block_distribution(data, workers)
-    map_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP, work)
-    print("Finished map phase")
 
-    # Perform the reduce phase
-    reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
-    final_result = reduce_helper(reduce_results, script)
-    print("Finished the reduce phase")
+    if args.single_phase:
+        reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP_REDUCE_SINGLE_PHASE, work)
+        print("Finished map and reduce phase")
+    else:
+        map_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP, work)
+        print("Finished map phase")
+
+        # Perform the reduce phase
+        reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
+        print("Finished the reduce phase")
 
     # process the final result
+    final_result = reduce_helper(reduce_results, script)
     script.get("process_result")(final_result)
 
     connection_manager.broadcast_message(clients, {'type': DEAD_PILL})
@@ -156,6 +162,18 @@ def client(args):
                     'type': FINISHED,
                     'result': reduced_data
                 })
+
+            elif msg['type'] == MAP_REDUCE_SINGLE_PHASE:
+                work = msg['work']
+                mapped_data = executor_pool.map(map_helper, work)
+                work = block_distribution(mapped_data, number_of_cpu)
+                reduced_data = executor_pool.map(reduce_helper, work, chunksize=1)
+                reduced_data = reduce_helper(reduced_data, current_script)
+                connection_manager.send_message({
+                    'type': FINISHED,
+                    'result': reduced_data
+                })
+
     except:
         traceback.print_exc()
         print("Client halted")
@@ -173,6 +191,7 @@ def main():
     parser.add_argument('-nh', '--network_host', type=str, default='127.0.0.1', help="The host address")
     parser.add_argument('-np', '--network_port', type=int, default=1234, help="The port to connect to")
     parser.add_argument('-ss', '--script_source', type=str, default="../res/test.txt", help="Where is the script source")
+    parser.add_argument('-spmr', '--single_phase', type=bool, default=False, help="Whether to do a single phase map reduce")
     args = parser.parse_args()
     assert args.world > 1, "There should be at least 1 worker"
 
