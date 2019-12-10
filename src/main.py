@@ -14,8 +14,7 @@ REDUCE = 3
 FINISHED = 4
 
 # these methods are utilities for the multiprocessing module
-# we can compile a script for each process by setting the chunk size to 1
-def mp_compile_script(script_source):
+def mp_init_worker(script_source):
     global script
     script = Script(script_source)
 
@@ -119,9 +118,10 @@ def server(args):
 
 
 def client(args):
+    number_of_cpu = cpu_count()
     connection_manager = ClientConnectionManager(args.network_host, args.network_port)
     running = True
-    executor_pool = Pool(cpu_count())
+    executor_pool = Pool(number_of_cpu)
     current_script = None
 
     try:
@@ -129,11 +129,14 @@ def client(args):
             msg = connection_manager.get_next_message_blocking()
             if msg['type'] == DEAD_PILL:
                 running = False
+
             elif msg['type'] == SCRIPTS:
+                executor_pool.close()
+                executor_pool.join()
+
                 current_script = Script(msg['script'])
-                executor_pool.map(mp_compile_script,
-                                  itertools.repeat(msg['script'], cpu_count()),
-                                  chunksize=1)
+                executor_pool = Pool(number_of_cpu, initializer=mp_init_worker, initargs=(msg['script'], ))
+
             elif msg['type'] == MAP:
                 work = msg['work']
                 mapped_data = executor_pool.map(map_helper, work)
@@ -141,8 +144,9 @@ def client(args):
                     'type': FINISHED,
                     'result': mapped_data
                 })
+
             elif msg['type'] == REDUCE:
-                work = block_distribution(msg['work'], cpu_count())
+                work = block_distribution(msg['work'], number_of_cpu)
                 reduced_data = executor_pool.map(reduce_helper, work, chunksize=1)
                 reduced_data = reduce_helper(reduced_data, current_script)
                 connection_manager.send_message({
