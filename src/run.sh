@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
 
 n_instances=$1
+program_args=${@:2}
 pids=""
 
 # start the workers
 for (( i = 0; i < $n_instances; i++ )); do
-    python3 main.py -i $i -w $n_instances &
+    python3 main.py -i $i -w $n_instances $program_args &
     pids="$pids $!"
 done
 
