@@ -6,3 +6,9 @@ def block_distribution(seq, num):
         out.append(seq[int(last):int(last + avg)])
         last += avg
     return out
+
+def chunking(seq, chunk_size):
+    out = []
+    for i in range(0, len(seq), chunk_size):
+        out.append(seq[i:i+chunk_size])
+    return out
