@@ -1,0 +1,41 @@
+import random
+
+# generator for the datasets
+def get_dataset():
+  l = list(range(99999))
+  random.shuffle(l)
+  return l
+
+# what to do with the final result
+def process_result(result):
+  if(all(result[i] <= result[i + 1] for i in range(len(result) - 1))):
+    print("The list is sorted")
+  else:
+    print("The list is not sorted")
+
+# the mapping methods
+def map(input):
+  return [input]
+
+# The reduce methods
+def merge_sorted_lists(a, b):
+  a_len = len(a)
+  b_len = len(b)
+  res = []
+  i, j = 0, 0
+  while i < a_len and j < b_len:
+    if a[i] < b[j]:
+      res.append(a[i])
+      i += 1
+    else:
+      res.append(b[j])
+      j += 1
+  return res + a[i:] + b[j:]
+
+def reduce_start_value():
+  return []
+
+def reduce(input, total):
+  return merge_sorted_lists(input, total)
+
+
