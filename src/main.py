@@ -1,10 +1,10 @@
 from utilities.script import Script
 from utilities.network import ClientConnectionManager, ServerConnectionManager
-from utilities.distribution import block_distribution, chunking
+from utilities.distribution import block_distribution
 from utilities.file_utils import read_file_contents
 from argparse import ArgumentParser, ArgumentDefaultsHelpFormatter
 from multiprocessing import Pool, cpu_count
-import itertools
+from datetime import datetime
 import traceback
 
 DEAD_PILL = 0
@@ -123,6 +123,10 @@ def server(args):
         chunks = workers - 1 if workers > 1 else workers
         work = block_distribution(data, chunks)
 
+        # get the start time
+        start_time = datetime.now()
+
+        # perform the map reduce
         if args.single_phase:
             reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP_REDUCE_SINGLE_PHASE, work)
             print("Finished map and reduce phase")
@@ -134,8 +138,15 @@ def server(args):
             reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
             print("Finished the reduce phase")
 
-        # process the final result
+        # perform a reduce on the final data
         final_result = reduce_helper(reduce_results, script)
+
+        # get the end time and log it
+        end_time = datetime.now()
+        dt = end_time - start_time
+        print(f"Map reduce took {dt.microseconds} microseconds")
+
+        # process the final result
         script.get("process_result")(final_result)
     except:
         traceback.print_exc()
