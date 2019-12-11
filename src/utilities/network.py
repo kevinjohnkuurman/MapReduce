@@ -37,9 +37,14 @@ class ConnectionManager:
         pass
 
     def _send(self, sock, data, message_type=MESSAGE):
-        dumped = pickle.dumps(data)
-        sock.send(struct.pack('ii', len(dumped), message_type))
-        sock.send(dumped)
+        try:
+            dumped = pickle.dumps(data)
+            sock.send(struct.pack('ii', len(dumped), message_type))
+            sock.send(dumped)
+        except BrokenPipeError:
+            print("Sending to dead node")
+        except OSError:
+            print("Sending to dead node")
 
     def _recv(self, sock):
         meta_data = struct.unpack("ii", sock.recv(8))
@@ -97,19 +102,20 @@ class ClientConnectionManager(ConnectionManager):
 
     def _send_heartbeat(self):
         while self.running:
-            try:
-                self._send(self.socket, '__heartbeat__', ConnectionManager.HEARTBEAT)
-                sleep(float(self.heartbeat_rate) / 2.0)
-            except OSError:
-                pass
+            self._send(self.socket, '__heartbeat__', ConnectionManager.HEARTBEAT)
+            sleep(float(self.heartbeat_rate) / 2.0)
 
     def _manage_incoming_messages(self):
         while self.running:
             try:
                 meta, data = self._recv(self.socket)
                 self.messages.put(data)
-            except OSError:
+            except struct.error:
                 pass
+            except ConnectionResetError:
+                break
+            except OSError:
+                break
 
     def send_message(self, data):
         self._send(self.socket, data)
@@ -196,6 +202,10 @@ class ServerConnectionManager(ConnectionManager):
                     client.messages.put(data)
             except struct.error:
                 pass
+            except ConnectionResetError:
+                break
+            except OSError:
+                break
         client.socket.close()
 
     def get_clients(self) -> List[ServerClientConnection]:
