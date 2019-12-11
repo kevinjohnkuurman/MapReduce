@@ -3,6 +3,7 @@
 # This script can be used for running the map reduce framework on the das
 # > module load python/3.6.0
 # > module load prun
+# > chmod +x das_run.sh
 # > prun -v -1 -np 2 ./das_run.sh {program arguments}
 
 # SGE destroys path, but saves it in SGE_O_PATH. Reset it.
