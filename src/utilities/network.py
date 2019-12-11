@@ -46,20 +46,18 @@ class ConnectionManager:
         except OSError:
             print("Sending to dead node")
 
-    def _recv(self, sock):
-        meta_data = struct.unpack("ii", sock.recv(8))
-        size = meta_data[0]
-
-        # make sure that we receive all of the requested data
+    def _recv_bytes(self, sock, size):
         received = sock.recv(size)
         while len(received) != size:
             received += sock.recv(size - len(received))
         assert len(received) == size, "Not enough data received"
+        return received
 
-        # convert the data back to an usable object
-        data = pickle.loads(received)
+    def _recv(self, sock):
+        meta_data = struct.unpack("ii", self._recv_bytes(sock, 8))
+        data = pickle.loads(self._recv_bytes(sock, meta_data[0]))
         return ({
-            'size': size,
+            'size': meta_data[0],
             'type': meta_data[1]
         }, data)
 
@@ -110,8 +108,6 @@ class ClientConnectionManager(ConnectionManager):
             try:
                 meta, data = self._recv(self.socket)
                 self.messages.put(data)
-            except struct.error:
-                break
             except ConnectionResetError:
                 break
             except OSError:
@@ -167,6 +163,7 @@ class ServerConnectionManager(ConnectionManager):
         if self.accept_thread is not None:
             self.accept_thread.join()
         for client in self.get_clients():
+            client.socket.close()
             client.listen_thread.join()
 
     def _accept_new_clients(self):
@@ -200,13 +197,10 @@ class ServerConnectionManager(ConnectionManager):
                     client.last_heartbeat = datetime.now()
                 else:
                     client.messages.put(data)
-            except struct.error:
-                break
             except ConnectionResetError:
                 break
             except OSError:
                 break
-        client.socket.close()
 
     def get_clients(self) -> List[ServerClientConnection]:
         return self.clients[:]
