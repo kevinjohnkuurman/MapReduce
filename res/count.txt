@@ -1,0 +1,20 @@
+# generator for the datasets
+def get_dataset():
+  return range(30)
+
+# what to do with the final result
+def process_result(result):
+  print(result)
+
+# the mapping methods
+def map(input):
+  return input
+
+# The reduce methods
+def reduce_start_value():
+  return 0
+
+def reduce(input, total):
+  return input + total
+
+

@@ -61,6 +61,13 @@ class ConnectionManager:
             'type': meta_data[1]
         }, data)
 
+    def _aggressive_close(self, sock):
+        try:
+            sock.shutdown(socket.SHUT_RDWR)
+        except OSError:
+            pass
+        sock.close()
+
 class ClientConnectionManager(ConnectionManager):
     def __init__(self, host='127.0.0.1', port=1234):
         super().__init__()
@@ -75,7 +82,7 @@ class ClientConnectionManager(ConnectionManager):
                 break
             except ConnectionRefusedError:
                 print("server is not yet up")
-                self.socket.close()
+                self._aggressive_close(self.socket)
                 sleep(1)
 
         # gather the configurations and other items
@@ -94,7 +101,7 @@ class ClientConnectionManager(ConnectionManager):
 
     def close(self):
         self.running = False
-        self.socket.close()
+        self._aggressive_close(self.socket)
         self.heartbeat_thread.join()
         self.manage_incoming.join()
 
@@ -159,11 +166,11 @@ class ServerConnectionManager(ConnectionManager):
 
     def close(self):
         self.running = False
-        self.socket.close()
+        self._aggressive_close(self.socket)
         if self.accept_thread is not None:
             self.accept_thread.join()
         for client in self.get_clients():
-            client.socket.close()
+            self._aggressive_close(client.socket)
             client.listen_thread.join()
 
     def _accept_new_clients(self):
