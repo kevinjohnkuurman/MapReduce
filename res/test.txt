@@ -7,12 +7,12 @@ res_path = '../res/sci.electronics'
 def get_dataset():
   files = os.listdir(res_path)
   files = list(os.path.join(res_path, f) for f in files)
-  return files[0:30]
+  return files
 
 
 # what to do with the final result
 def process_result(result):
-  print(result.most_common(10))
+  print(result.most_common(5))
 
 
 # the mapping methods
