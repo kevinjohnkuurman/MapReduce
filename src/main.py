@@ -53,10 +53,21 @@ def server_do_phase(connection_manager, clients, heartbeat, phase, work_list):
     results = []
     while True:
         # first we make sure that every client is still alive
-        for client in clients:
+        for client in clients[:]:
             if client.seconds_since_last_heartbeat() > heartbeat:
                 # this client is probably not alive anymore, redistribute the work
                 print(f"Client {client.cid} died")
+
+                clients.remove(client)
+                finished.pop(client.cid, None)
+
+                work = client.get_user_data()
+                if work is not None:
+                    work_list.append(work)
+                client.set_user_data(None)
+
+                if len(clients) == 0:
+                    raise RuntimeError("All clients died")
 
         # check for inbound messages
         message = connection_manager.get_next_message(clients)
@@ -64,14 +75,17 @@ def server_do_phase(connection_manager, clients, heartbeat, phase, work_list):
             client, message = message
             results.append(message['result'])
             finished[client.cid] = True
+            client.set_user_data(None)
 
         # check whether we can send new work to any client
         for client in clients:
             if finished[client.cid] and len(work_list) > 0:
                 finished[client.cid] = False
+                work = work_list.pop()
+                client.set_user_data(work)
                 connection_manager.send_message(client, {
                     'type': phase,
-                    'work': work_list.pop()
+                    'work': work
                 })
 
         # if all clients have responded then we're done
@@ -90,37 +104,42 @@ def server(args):
     # get the clients and start distributing the work
     clients = connection_manager.get_clients()
 
-    # first we broadcast the script
-    script_source = read_file_contents(args.script_source)
-    script = Script(script_source)
-    assert script.has("get_dataset"), "get_dataset function is mandatory"
-    assert script.has("process_result"), "process_result function is mandatory"
-    assert script.has("map"), "map function is mandatory"
-    assert script.has("reduce"), "reduce function is mandatory"
-    assert script.has("reduce_start_value"), "reduce_start_value function is mandatory"
-    connection_manager.broadcast_message(clients, {
-        'type': SCRIPTS,
-        'script': script_source
-    })
+    try:
+        # first we broadcast the script
+        script_source = read_file_contents(args.script_source)
+        script = Script(script_source)
+        assert script.has("get_dataset"), "get_dataset function is mandatory"
+        assert script.has("process_result"), "process_result function is mandatory"
+        assert script.has("map"), "map function is mandatory"
+        assert script.has("reduce"), "reduce function is mandatory"
+        assert script.has("reduce_start_value"), "reduce_start_value function is mandatory"
+        connection_manager.broadcast_message(clients, {
+            'type': SCRIPTS,
+            'script': script_source
+        })
 
-    # Perform the map phase
-    data = script.get("get_dataset")()
-    work = block_distribution(data, workers)
+        # Perform the map phase
+        data = script.get("get_dataset")()
+        chunks = workers - 1 if workers > 1 else workers
+        work = block_distribution(data, chunks)
 
-    if args.single_phase:
-        reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP_REDUCE_SINGLE_PHASE, work)
-        print("Finished map and reduce phase")
-    else:
-        map_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP, work)
-        print("Finished map phase")
+        if args.single_phase:
+            reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP_REDUCE_SINGLE_PHASE, work)
+            print("Finished map and reduce phase")
+        else:
+            map_results = server_do_phase(connection_manager, clients, args.heartbeat, MAP, work)
+            print("Finished map phase")
 
-        # Perform the reduce phase
-        reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
-        print("Finished the reduce phase")
+            # Perform the reduce phase
+            reduce_results = server_do_phase(connection_manager, clients, args.heartbeat, REDUCE, map_results)
+            print("Finished the reduce phase")
 
-    # process the final result
-    final_result = reduce_helper(reduce_results, script)
-    script.get("process_result")(final_result)
+        # process the final result
+        final_result = reduce_helper(reduce_results, script)
+        script.get("process_result")(final_result)
+    except:
+        traceback.print_exc()
+        print("Server halted")
 
     connection_manager.broadcast_message(clients, {'type': DEAD_PILL})
     connection_manager.close()
@@ -187,7 +206,7 @@ def main():
     parser = ArgumentParser(description='Do a map reduce on a dataset.', formatter_class=ArgumentDefaultsHelpFormatter)
     parser.add_argument('-i', '--index', type=int, required=True, help='What is the index of the instance (0 is server)')
     parser.add_argument('-w', '--world', type=int, required=True, help='What is the size of the world')
-    parser.add_argument('-hb', '--heartbeat', type=float, default=10.0, help="Heartbeat interval")
+    parser.add_argument('-hb', '--heartbeat', type=float, default=4.0, help="Heartbeat interval")
     parser.add_argument('-nh', '--network_host', type=str, default='127.0.0.1', help="The host address")
     parser.add_argument('-np', '--network_port', type=int, default=1234, help="The port to connect to")
     parser.add_argument('-ss', '--script_source', type=str, default="../res/test.txt", help="Where is the script source")
