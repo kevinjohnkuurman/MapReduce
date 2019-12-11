@@ -28,4 +28,5 @@ do
 done
 
 # Start a server instance
+echo "python3 main.py -i $PRUN_CPU_RANK -w $NHOSTS -nh $serverhost $@"
 python3 main.py -i $PRUN_CPU_RANK -w $NHOSTS -nh $serverhost $@
