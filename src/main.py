@@ -164,8 +164,8 @@ def client(args):
     current_script = None
 
     try:
-        if args.index == args.debug_crash_node:
-            raise RuntimeError("Debug crashing this node :D")
+        if args.index in args.debug_crash_node:
+            raise RuntimeError(f"Debug crashing node {args.index} :D")
 
         while running:
             msg = connection_manager.get_next_message_blocking()
@@ -225,7 +225,8 @@ def main():
     parser.add_argument('-np', '--network_port', type=int, default=1234, help="The port to connect to")
     parser.add_argument('-ss', '--script_source', type=str, default="../res/test.txt", help="Where is the script source")
     parser.add_argument('-spmr', '--single_phase', type=bool, default=False, help="Whether to do a single phase map reduce")
-    parser.add_argument('-dbgcn', '--debug_crash_node', type=int, default=-1, help="The node to crash to test how the system handles failing nodes")
+    parser.add_argument('-dbgcn', '--debug_crash_node', nargs='+', type=int, default=[],
+                        help="The node to crash to test how the system handles failing nodes")
     args = parser.parse_args()
     assert args.world > 1, "There should be at least 1 worker"
 
