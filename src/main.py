@@ -223,7 +223,7 @@ def main():
     parser.add_argument('-hb', '--heartbeat', type=float, default=4.0, help="Heartbeat interval")
     parser.add_argument('-nh', '--network_host', type=str, default='127.0.0.1', help="The host address")
     parser.add_argument('-np', '--network_port', type=int, default=1234, help="The port to connect to")
-    parser.add_argument('-ss', '--script_source', type=str, default="../res/test.txt", help="Where is the script source")
+    parser.add_argument('-ss', '--script_source', type=str, default="../res/word_count.txt", help="Where is the script source")
     parser.add_argument('-tf', '--task_factor', type=float, default=1, help="How many tasks should be produced (tf * workers)")
     parser.add_argument('-spmr', '--single_phase', type=bool, default=False, help="Whether to do a single phase map reduce")
     parser.add_argument('-dbgcn', '--debug_crash_node', nargs='+', type=int, default=[],
