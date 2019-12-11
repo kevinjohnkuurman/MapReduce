@@ -121,8 +121,8 @@ def server(args):
         # Perform the map phase
         data = script.get("get_dataset")()
         chunks = workers - 1 if workers > 1 else workers
-        work = block_distribution(data, chunks)
-
+        work = block_distribution(data, int(args.task_factor * chunks))
+        
         # get the start time
         start_time = datetime.now()
 
@@ -164,8 +164,8 @@ def client(args):
     current_script = None
 
     try:
-        if args.index == args.debug_crash_node:
-            raise RuntimeError("Debug crashing this node :D")
+        if args.index in args.debug_crash_node:
+            raise RuntimeError(f"Debug crashing node {args.index} :D")
 
         while running:
             msg = connection_manager.get_next_message_blocking()
@@ -223,9 +223,11 @@ def main():
     parser.add_argument('-hb', '--heartbeat', type=float, default=4.0, help="Heartbeat interval")
     parser.add_argument('-nh', '--network_host', type=str, default='127.0.0.1', help="The host address")
     parser.add_argument('-np', '--network_port', type=int, default=1234, help="The port to connect to")
-    parser.add_argument('-ss', '--script_source', type=str, default="../res/test.txt", help="Where is the script source")
+    parser.add_argument('-ss', '--script_source', type=str, default="../res/word_count.txt", help="Where is the script source")
+    parser.add_argument('-tf', '--task_factor', type=float, default=1, help="How many tasks should be produced (tf * workers)")
     parser.add_argument('-spmr', '--single_phase', type=bool, default=False, help="Whether to do a single phase map reduce")
-    parser.add_argument('-dbgcn', '--debug_crash_node', type=int, default=-1, help="The node to crash to test how the system handles failing nodes")
+    parser.add_argument('-dbgcn', '--debug_crash_node', nargs='+', type=int, default=[],
+                        help="The node to crash to test how the system handles failing nodes")
     args = parser.parse_args()
     assert args.world > 1, "There should be at least 1 worker"
 
