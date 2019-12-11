@@ -111,7 +111,7 @@ class ClientConnectionManager(ConnectionManager):
                 meta, data = self._recv(self.socket)
                 self.messages.put(data)
             except struct.error:
-                pass
+                break
             except ConnectionResetError:
                 break
             except OSError:
@@ -201,7 +201,7 @@ class ServerConnectionManager(ConnectionManager):
                 else:
                     client.messages.put(data)
             except struct.error:
-                pass
+                break
             except ConnectionResetError:
                 break
             except OSError:
