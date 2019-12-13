@@ -5,10 +5,13 @@ from collections import Counter
 # generator for the datasets
 res_path = '../res/sci.electronics'
 def get_dataset():
-  files = os.listdir(res_path)
-  files = list(os.path.join(res_path, f) for f in files)
-  return files
-
+	files = []
+	for f in os.listdir(res_path):
+		file = os.path.join(res_path, f)
+		length = os.path.getsize(file)
+		offset = length / 2
+		files.append((file, offset, length))
+	return files
 
 # what to do with the final result
 def process_result(result):
