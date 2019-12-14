@@ -1,0 +1,42 @@
+import os
+import string
+from collections import Counter
+
+# generator for the datasets
+res_path = '../res/sci.electronics'
+def get_dataset():
+  files = []
+  for file_name in (os.path.join(res_path, f) for f in os.listdir(res_path)):
+    length = os.path.getsize(file_name)
+    half_length = int(length / 2)
+    files.append((file_name, 0, half_length))
+    files.append((file_name, half_length, length - half_length))
+  return files
+
+
+# what to do with the final result
+def process_result(result):
+  print(result.most_common(5))
+
+
+# the mapping methods
+def map(input):
+  # clean the file
+  file_name, offset, length = input
+  file_contents = read_chunk(file_name, offset, length)
+  for char in string.punctuation:
+    file_contents = file_contents.replace(char, ' ')
+  file_contents = file_contents.lower()
+
+  # get the word counts
+  return Counter(file_contents.split())
+
+
+# The reduce methods
+def reduce_start_value():
+  return Counter()
+
+def reduce(input, total):
+  return input + total
+
+
