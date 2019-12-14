@@ -1,5 +1,5 @@
 from types import FunctionType
-from utilities.file_utils import read_file_contents
+from utilities.file_utils import read_file_contents, read_file_chunk
 
 class Script:
     """
@@ -10,6 +10,7 @@ class Script:
         try:
             self.module = {
                 'read_file': read_file_contents,
+                'read_chunk': read_file_chunk
             }
             exec(compile(code, '<MapReduce>', 'exec'), self.module)
         except SyntaxError:
