@@ -3,11 +3,13 @@ import string
 from collections import Counter
 
 # generator for the datasets
-res_path = '../res/sci.electronics'
+res_path = '../res/files'
 def get_dataset():
-  files = os.listdir(res_path)
-  files = list(os.path.join(res_path, f) for f in files)
-  return files
+  files_list = []
+  for path, _, files in os.walk(res_path):
+    for name in files:
+      files_list.append(os.path.join(path, name))
+  return files_list
 
 
 # what to do with the final result

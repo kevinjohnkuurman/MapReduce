@@ -2,7 +2,7 @@ import socket
 import struct
 import pickle
 from typing import List
-from threading import Thread, Condition
+from threading import Thread, Condition, Lock
 from queue import Queue
 from time import sleep
 from utilities.atomic_int import AtomicInteger
@@ -34,17 +34,18 @@ class ConnectionManager:
     CONFIG = 3
 
     def __init__(self):
-        pass
+        self._send_lock = Lock()
 
     def _send(self, sock, data, message_type=MESSAGE):
-        try:
-            dumped = pickle.dumps(data)
-            sock.send(struct.pack('ii', len(dumped), message_type))
-            sock.send(dumped)
-        except BrokenPipeError:
-            print("Sending to dead node")
-        except OSError:
-            print("Sending to dead node")
+        with self._send_lock:
+            try:
+                dumped = pickle.dumps(data)
+                sock.send(struct.pack('ii', len(dumped), message_type))
+                sock.send(dumped)
+            except BrokenPipeError:
+                print("Sending to dead node")
+            except OSError:
+                print("Sending to dead node")
 
     def _recv_bytes(self, sock, size):
         received = sock.recv(size)
