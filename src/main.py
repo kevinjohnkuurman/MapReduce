@@ -144,7 +144,7 @@ def server(args):
         # get the end time and log it
         end_time = datetime.now()
         dt = end_time - start_time
-        print(f"Map reduce took {dt.microseconds} microseconds")
+        print(f"Map reduce took {dt.total_seconds()} seconds")
 
         # process the final result
         script.get("process_result")(final_result)
