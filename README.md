@@ -10,6 +10,9 @@ Use the following command to run this on your local machine
 ## DAS
 Use the following command to run this on the DAS
 > cd src<br/>
+> module load python/3.6.0<br/>
+> module load prun<br/>
+> chmod +x das_run.sh<br/>
 > prun -v -1 -np <int: amount of instances> ./das_run.sh <...: further arguments>
 
 # Student Information
